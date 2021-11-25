@@ -39,6 +39,8 @@ class _MyHomePageState extends State<MyHomePage> {
   late Timer timer;
   late Map<String, int> fieldInfo;
 
+  int pageRows = 20;
+
   final DbfDataSource _dbfDataSource = DbfDataSource();
   final TextEditingController _searchController = TextEditingController();
 
@@ -95,10 +97,13 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             columns: title,
             source: _dbfDataSource,
-            rowsPerPage: _dbfDataSource.list.length > 20
-                ? 20
-                : _dbfDataSource.list.length,
+            rowsPerPage: pageRows,
             showFirstLastButtons: true,
+            availableRowsPerPage: const [20, 50, 100, 500, 1000],
+            onRowsPerPageChanged: (value) {
+              pageRows = value!;
+              setState(() {});
+            },
           ),
         ],
       );
