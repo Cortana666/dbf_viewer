@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fast_gbk/fast_gbk.dart';
+
+import 'package:dbf_viewer/data_source.dart';
 
 void main() => runApp(const MyApp());
 
@@ -33,10 +35,12 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   bool isOpen = false;
   bool isOpenSuccess = false;
-  bool isError = false;
-  final TextEditingController _searchController = TextEditingController();
+
+  late Timer timer;
   late Map<String, int> fieldInfo;
+
   final DbfDataSource _dbfDataSource = DbfDataSource();
+  final TextEditingController _searchController = TextEditingController();
 
   Widget _initBody() {
     if (isOpenSuccess) {
@@ -80,8 +84,9 @@ class _MyHomePageState extends State<MyHomePage> {
                     child: ElevatedButton(
                       child: const Text('搜索'),
                       onPressed: () {
-                        _dbfDataSource.searchVal(_searchController.text);
-                        setState(() {});
+                        _dbfDataSource.keyword = _searchController.text;
+                        _dbfDataSource.sync();
+                        _dbfDataSource.flush();
                       },
                     ),
                   ),
@@ -90,9 +95,9 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             columns: title,
             source: _dbfDataSource,
-            rowsPerPage: _dbfDataSource.search.length > 50
-                ? 50
-                : _dbfDataSource.search.length,
+            rowsPerPage: _dbfDataSource.list.length > 20
+                ? 20
+                : _dbfDataSource.list.length,
             showFirstLastButtons: true,
           ),
         ],
@@ -100,10 +105,6 @@ class _MyHomePageState extends State<MyHomePage> {
     } else if (isOpen) {
       return const Center(
         child: CircularProgressIndicator(),
-      );
-    } else if (isError) {
-      return const Center(
-        child: Text('文件打开失败'),
       );
     } else {
       return const Center(
@@ -119,16 +120,21 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     if (result != null) {
+      if (isOpenSuccess) {
+        timer.cancel();
+      }
       isOpen = true;
       isOpenSuccess = false;
       setState(() {});
 
-      int p = 0;
-      _dbfDataSource.data = [];
-      fieldInfo = {};
-      bool goon = true;
+      _dbfDataSource.source = [];
+      _dbfDataSource.keyword = '';
       File file = File(result.files.single.path ?? '');
       Uint8List dbf = await file.readAsBytes();
+      int p = 0;
+      int line = 0;
+      fieldInfo = {};
+      bool goon = true;
       p += 32;
 
       int recordCount =
@@ -167,37 +173,46 @@ class _MyHomePageState extends State<MyHomePage> {
 
       p = firstRecord + 1;
 
-      for (var i = 0; i < recordCount; i++) {
-        int j = 0;
-        Map row = {};
+      timer = Timer.periodic(const Duration(microseconds: 100), (timer) async {
+        for (var i = 0; i < 10000; i++) {
+          if (line == recordCount) {
+            timer.cancel();
+            break;
+          }
+          int j = 0;
+          Map row = {};
 
-        int q = p + recordLength;
-        if (q > dbf.length) {
-          q = dbf.length;
-        }
-
-        Uint8List buf = Uint8List.fromList(dbf.getRange(p, q).toList());
-        p += recordLength;
-
-        fieldInfo.forEach((key, value) {
-          int k = j + value;
-          if (k > recordLength) {
-            k = recordLength;
+          int q = p + recordLength;
+          if (q > dbf.length) {
+            q = dbf.length;
           }
 
-          row[key] = gbk.decode(buf.getRange(j, k).toList()).trim();
-          j += value;
-        });
+          Uint8List buf = Uint8List.fromList(dbf.getRange(p, q).toList());
+          p += recordLength;
 
-        _dbfDataSource.data.add(row);
-      }
-      _dbfDataSource.search = _dbfDataSource.data;
+          fieldInfo.forEach((key, value) {
+            int k = j + value;
+            if (k > recordLength) {
+              k = recordLength;
+            }
 
-      if (!isError) {
-        isOpenSuccess = true;
-        isOpen = false;
-        setState(() {});
-      }
+            row[key] = gbk.decode(buf.getRange(j, k).toList()).trim();
+            j += value;
+          });
+
+          _dbfDataSource.source.add(row);
+          line++;
+        }
+
+        _dbfDataSource.sync();
+        if (isOpen) {
+          isOpen = false;
+          isOpenSuccess = true;
+          setState(() {});
+        } else {
+          _dbfDataSource.flush();
+        }
+      });
     }
   }
 
@@ -212,52 +227,4 @@ class _MyHomePageState extends State<MyHomePage> {
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
-}
-
-class DbfDataSource extends DataTableSource {
-  bool isSearch = false;
-  late List<Map> data;
-  List<Map> search = [];
-
-  void searchVal(String keyword) {
-    search = [];
-    if (keyword.isNotEmpty) {
-      for (var item in data) {
-        bool isHave = false;
-        item.forEach((key, value) {
-          if (value == keyword) {
-            isHave = true;
-          }
-        });
-
-        if (isHave) {
-          search.add(item);
-        }
-      }
-    } else {
-      search = data;
-    }
-
-    notifyListeners();
-  }
-
-  @override
-  DataRow? getRow(int index) {
-    List<DataCell> row = [];
-    search[index].forEach((key, value) {
-      row.add(DataCell(
-        SelectableText(value),
-      ));
-    });
-    return DataRow(cells: row);
-  }
-
-  @override
-  int get rowCount => search.length;
-
-  @override
-  bool get isRowCountApproximate => false;
-
-  @override
-  int get selectedRowCount => 0;
 }
