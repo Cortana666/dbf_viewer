@@ -90,8 +90,8 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             columns: title,
             source: _dbfDataSource,
-            rowsPerPage: _dbfDataSource.search.length > 1000
-                ? 1000
+            rowsPerPage: _dbfDataSource.search.length > 50
+                ? 50
                 : _dbfDataSource.search.length,
             showFirstLastButtons: true,
           ),
@@ -133,13 +133,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
       int recordCount =
           ByteData.view(Uint8List.fromList(dbf.getRange(4, 8).toList()).buffer)
-              .getInt32(0, Endian.little);
+              .getUint32(0, Endian.little);
       int firstRecord =
           ByteData.view(Uint8List.fromList(dbf.getRange(8, 10).toList()).buffer)
-              .getInt16(0, Endian.little);
+              .getUint16(0, Endian.little);
       int recordLength = ByteData.view(
               Uint8List.fromList(dbf.getRange(10, 12).toList()).buffer)
-          .getInt16(0, Endian.little);
+          .getUint16(0, Endian.little);
 
       while (goon && p <= file.lengthSync()) {
         Uint8List buf = Uint8List.fromList(dbf.getRange(p, p + 32).toList());
@@ -147,11 +147,19 @@ class _MyHomePageState extends State<MyHomePage> {
         if (buf.first == 13) {
           goon = false;
         } else {
+          List fieldNameCodes = buf.getRange(0, 11).toList();
+          int fieldNameP = 0;
+          for (var item in fieldNameCodes) {
+            if (item == 0) {
+              break;
+            }
+            fieldNameP++;
+          }
           String fieldName = String.fromCharCodes(
-              Uint8List.fromList(buf.getRange(0, 11).toList()));
+              Uint8List.fromList(buf.getRange(0, fieldNameP).toList()));
           int fieldLen = ByteData.view(
                   Uint8List.fromList(buf.getRange(16, 17).toList()).buffer)
-              .getInt8(0);
+              .getUint8(0);
 
           fieldInfo[fieldName] = fieldLen;
         }
@@ -160,26 +168,28 @@ class _MyHomePageState extends State<MyHomePage> {
       p = firstRecord + 1;
 
       for (var i = 0; i < recordCount; i++) {
-        if ((p + recordLength) > dbf.length) {
-          isError = true;
-          isOpenSuccess = false;
-          isOpen = false;
-          setState(() {});
-          break;
-        } else {
-          int j = 0;
-          Map row = {};
-          Uint8List buf =
-              Uint8List.fromList(dbf.getRange(p, p + recordLength).toList());
-          p += recordLength;
+        int j = 0;
+        Map row = {};
 
-          fieldInfo.forEach((key, value) {
-            row[key] = gbk.decode(buf.getRange(j, j + value).toList()).trim();
-            j += value;
-          });
-
-          _dbfDataSource.data.add(row);
+        int q = p + recordLength;
+        if (q > dbf.length) {
+          q = dbf.length;
         }
+
+        Uint8List buf = Uint8List.fromList(dbf.getRange(p, q).toList());
+        p += recordLength;
+
+        fieldInfo.forEach((key, value) {
+          int k = j + value;
+          if (k > recordLength) {
+            k = recordLength;
+          }
+
+          row[key] = gbk.decode(buf.getRange(j, k).toList()).trim();
+          j += value;
+        });
+
+        _dbfDataSource.data.add(row);
       }
       _dbfDataSource.search = _dbfDataSource.data;
 
