@@ -4,6 +4,7 @@ class DbfDataSource extends DataTableSource {
   String keyword = '';
   List<Map> list = [];
   List<Map> source = [];
+  Map select = {};
 
   void sync() {
     if (keyword.isNotEmpty) {
@@ -37,7 +38,14 @@ class DbfDataSource extends DataTableSource {
         SelectableText(value),
       ));
     });
-    return DataRow(cells: row);
+    return DataRow(
+      cells: row,
+      selected: select[index] ?? false,
+      onSelectChanged: (selected) {
+        select[index] = selected;
+        flush();
+      },
+    );
   }
 
   @override

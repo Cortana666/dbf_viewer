@@ -40,6 +40,8 @@ class _MyHomePageState extends State<MyHomePage> {
   late Map<String, int> fieldInfo;
 
   int pageRows = 20;
+  int? sortIndex;
+  bool sortAscending = false;
 
   final DbfDataSource _dbfDataSource = DbfDataSource();
   final TextEditingController _searchController = TextEditingController();
@@ -51,11 +53,15 @@ class _MyHomePageState extends State<MyHomePage> {
       fieldInfo.forEach((key, value) {
         title.add(
           DataColumn(
-            label: SelectableText(
-              key,
-              style: const TextStyle(fontStyle: FontStyle.italic),
-            ),
-          ),
+              label: SelectableText(
+                key,
+                style: const TextStyle(fontStyle: FontStyle.italic),
+              ),
+              onSort: (index, sort) {
+                sortIndex = index;
+                sortAscending = sort;
+                setState(() {});
+              }),
         );
       });
 
@@ -95,6 +101,59 @@ class _MyHomePageState extends State<MyHomePage> {
                 ],
               ),
             ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.only(
+                  top: 20,
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('添加功能开发中'),
+                        duration: Duration(milliseconds: 1000),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(
+                  top: 20,
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('删除功能开发中'),
+                        duration: Duration(milliseconds: 1000),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.delete),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(
+                  top: 20,
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('导出功能开发中'),
+                        duration: Duration(milliseconds: 1000),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.download),
+                ),
+              ),
+            ],
+            showCheckboxColumn: true,
+            sortColumnIndex: sortIndex,
+            sortAscending: sortAscending,
             columns: title,
             source: _dbfDataSource,
             rowsPerPage: pageRows,
