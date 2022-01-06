@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
 
 class DbfDataSource extends DataTableSource {
-  String keyword = '';
-  List<Map> list = [];
-  List<Map> source = [];
-  Map select = {};
+  late String keyword;
+  late List<Map> source;
+  late List<Map> list;
+  late Map<int, bool> select;
+
+  void init() {
+    keyword = '';
+    source = [];
+    list = [];
+    select = {};
+  }
+
+  void sort(String key, bool ascSort) {
+    list.sort((a, b) {
+      if (ascSort) {
+        return a[key].compareTo(b[key]);
+      } else {
+        return b[key].compareTo(a[key]);
+      }
+    });
+    flush();
+  }
 
   void sync() {
     if (keyword.isNotEmpty) {
@@ -42,7 +60,7 @@ class DbfDataSource extends DataTableSource {
       cells: row,
       selected: select[index] ?? false,
       onSelectChanged: (selected) {
-        select[index] = selected;
+        select[index] = selected!;
         flush();
       },
     );
