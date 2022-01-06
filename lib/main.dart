@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:fast_gbk/fast_gbk.dart';
+import 'package:get/get.dart';
 
 import 'package:dbf_viewer/data_source.dart';
 import 'package:dbf_viewer/dbf.dart';
@@ -34,43 +33,20 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  bool isChoose = false;
-  bool isOpen = false;
-  bool isRead = false;
-  late Timer readTimer;
-  late Map<String, int> fieldInfo;
+  RxBool isChoose = false.obs;
+  RxBool isOpen = false.obs;
 
-  int pageRows = 20;
-  int? sortIndex;
-  bool sortAscending = false;
+  RxInt pageRows = 20.obs;
+  RxInt? sortIndex;
+  RxBool sortAscending = false.obs;
 
-  late Uint8List dbf;
-
-  final DbfDataSource _dbfDataSource = DbfDataSource();
-  final Dbf _dbf = Dbf();
+  final Dbf _dbf = Get.put(Dbf());
+  final DbfDataSource _dbfDataSource = Get.put(DbfDataSource());
   final TextEditingController _searchController = TextEditingController();
 
   Widget _initBody() {
-    if (isChoose) {
-      if (isOpen) {
-        List<DataColumn> title = [];
-
-        fieldInfo.forEach((key, value) {
-          title.add(
-            DataColumn(
-                label: Text(
-                  key,
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
-                onSort: (index, ascSort) {
-                  sortIndex = index;
-                  sortAscending = ascSort;
-                  _dbfDataSource.sort(key, ascSort);
-                  setState(() {});
-                }),
-          );
-        });
-
+    if (isChoose.value) {
+      if (isOpen.value) {
         return ListView(
           children: [
             PaginatedDataTable(
@@ -131,13 +107,23 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   child: IconButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('删除功能开发中'),
-                          duration: Duration(milliseconds: 100),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                      Map<String, dynamic> res =
+                          _dbf.delete(_dbfDataSource.select);
+                      if (res['code'] == 1) {
+                        for (var item in _dbfDataSource.select) {
+                          _dbfDataSource.source.remove(item);
+                        }
+                        _dbfDataSource.sync();
+                        _dbfDataSource.flush();
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(res['message']),
+                            duration: const Duration(milliseconds: 500),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.delete),
                   ),
@@ -157,7 +143,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
                       if (outputFile != null) {
                         File file = File(outputFile);
-                        await file.writeAsBytes(dbf);
+                        await file.writeAsBytes(_dbf.dbf);
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -173,16 +159,26 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ],
               showCheckboxColumn: true,
-              sortColumnIndex: sortIndex,
-              sortAscending: sortAscending,
-              columns: title,
+              sortColumnIndex: sortIndex?.value,
+              sortAscending: sortAscending.value,
+              columns: _dbf.field.keys.map((key) {
+                return DataColumn(
+                    label: Text(
+                      key,
+                      style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                    onSort: (index, ascSort) {
+                      _dbfDataSource.sort(key, ascSort);
+                      sortIndex?.value = index;
+                      sortAscending.value = ascSort;
+                    });
+              }).toList(),
               source: _dbfDataSource,
-              rowsPerPage: pageRows,
+              rowsPerPage: pageRows.value,
               showFirstLastButtons: true,
               availableRowsPerPage: const [20, 50, 100, 500, 1000],
               onRowsPerPageChanged: (value) {
-                pageRows = value!;
-                setState(() {});
+                pageRows.value = value!;
               },
             ),
           ],
@@ -200,32 +196,40 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _openFile() async {
-    if (!isChoose) {
-      isChoose = true;
+    if (!isChoose.value || (isChoose.value && isOpen.value)) {
+      isChoose.value = true;
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['dbf'],
       );
 
       if (result != null) {
-        if (isRead) {
-          readTimer.cancel();
-        }
-        isOpen = false;
-        isRead = false;
-        pageRows = 20;
+        _dbfDataSource.init(context);
+        isOpen.value = false;
+        pageRows.value = 20;
         sortIndex = null;
-        sortAscending = false;
-        _dbfDataSource.init();
-        fieldInfo = {};
-        setState(() {});
+        sortAscending.value = false;
 
-        _dbf.init(result.files.single.path ?? '');
+        Timer(const Duration(seconds: 1), () {
+          _dbf.init(result.files.single.path ?? '');
 
-        // readFile(result.files.single.path ?? '');
+          for (var i = 0; i < _dbf.data.length; i++) {
+            _dbf.data[i]?.forEach((key, value) {
+              _dbf.dataController['${i}_$key'] = TextEditingController();
+              _dbf.dataController['${i}_$key']?.text = value;
+            });
+          }
+
+          _dbfDataSource.source = _dbf.data;
+          _dbfDataSource.sync();
+          _dbfDataSource.flush();
+          isOpen.value = true;
+        });
+      } else {
+        if (!isOpen.value) {
+          isChoose.value = false;
+        }
       }
-
-      isChoose = false;
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -237,101 +241,17 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void readFile(String path) async {
-    File file = File(path);
-    dbf = await file.readAsBytes();
-    int p = 0;
-    int line = 0;
-    bool goon = true;
-    p += 32;
-
-    int recordCount =
-        ByteData.view(Uint8List.fromList(dbf.getRange(4, 8).toList()).buffer)
-            .getUint32(0, Endian.little);
-    int firstRecord =
-        ByteData.view(Uint8List.fromList(dbf.getRange(8, 10).toList()).buffer)
-            .getUint16(0, Endian.little);
-    int recordLength =
-        ByteData.view(Uint8List.fromList(dbf.getRange(10, 12).toList()).buffer)
-            .getUint16(0, Endian.little);
-
-    while (goon && p <= file.lengthSync()) {
-      Uint8List buf = Uint8List.fromList(dbf.getRange(p, p + 32).toList());
-      p += 32;
-      if (buf.first == 13) {
-        goon = false;
-      } else {
-        List fieldNameCodes = buf.getRange(0, 11).toList();
-        int fieldNameP = 0;
-        for (var item in fieldNameCodes) {
-          if (item == 0) {
-            break;
-          }
-          fieldNameP++;
-        }
-        String fieldName = String.fromCharCodes(
-            Uint8List.fromList(buf.getRange(0, fieldNameP).toList()));
-        int fieldLen = ByteData.view(
-                Uint8List.fromList(buf.getRange(16, 17).toList()).buffer)
-            .getUint8(0);
-
-        fieldInfo[fieldName] = fieldLen;
-      }
-    }
-
-    p = firstRecord + 1;
-
-    isRead = true;
-    readTimer =
-        Timer.periodic(const Duration(microseconds: 100), (timer) async {
-      for (var i = 0; i < 10000; i++) {
-        if (line == recordCount) {
-          isRead = false;
-          timer.cancel();
-          break;
-        }
-        int j = 0;
-        Map row = {};
-
-        int q = p + recordLength;
-        if (q > dbf.length) {
-          q = dbf.length;
-        }
-
-        Uint8List buf = Uint8List.fromList(dbf.getRange(p, q).toList());
-        p += recordLength;
-
-        fieldInfo.forEach((key, value) {
-          int k = j + value;
-          if (k > recordLength) {
-            k = recordLength;
-          }
-
-          row[key] = gbk.decode(buf.getRange(j, k).toList()).trim();
-          j += value;
-        });
-
-        _dbfDataSource.source.add(row);
-        line++;
-      }
-
-      _dbfDataSource.sync();
-      _dbfDataSource.flush();
-
-      isOpen = true;
-      setState(() {});
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _initBody(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openFile,
-        child: const Icon(Icons.folder_open),
+    return Obx(
+      () => Scaffold(
+        body: _initBody(),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _openFile,
+          child: const Icon(Icons.folder_open),
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
 }

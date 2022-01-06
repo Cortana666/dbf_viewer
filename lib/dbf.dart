@@ -1,178 +1,120 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
+import 'package:fast_gbk/fast_gbk.dart';
+
 class Dbf {
   late Uint8List dbf;
-
-  final Map<String, Map<String, dynamic>> header = {
-    'edition': {
-      'length': 1,
-    },
-    'time': {
-      'length': 3,
-    },
-    'lines': {
-      'length': 4,
-    },
-    'first': {
-      'length': 2,
-    },
-    'length': {
-      'length': 2,
-    },
-    'mark': {
-      'length': 20,
-    },
-  };
-
-  final Map<String, Map<String, dynamic>> record = {
-    'name': {
-      'length': 11,
-    },
-    'type': {
-      'length': 1,
-    },
-    'mark1': {
-      'length': 4,
-    },
-    'length': {
-      'length': 1,
-    },
-    'precise': {
-      'length': 1,
-    },
-    'mark2': {
-      'length': 2,
-    },
-  };
-
-  final Map typeMap = {
-    '2': 'FoxBASE',
-    '3': 'FoxBASE+/dBASE III PLUS，无备注',
-    '30': 'Visual FoxPro',
-    '43': 'dBASE IV SQL 表文件，无备注',
-    '63': 'dBASE IV SQL 系统文件，无备注',
-    '83': 'FoxBASE+/dBASE III PLUS，有备注',
-    '8B': 'dBASE IV，有备注',
-    'CB': 'dBASE IV SQL 表文件，有备注',
-    'F5': 'FoxPro 2.x（或更早版本），有备注',
-    'FB': 'FoxBASE',
-  };
+  late Uint8List export;
+  late int lines;
+  late int first;
+  late int length;
+  late int p;
+  late bool goon;
+  late Map<String, Map<String, int>> field;
+  late int line;
+  late Map<int, Map<String, dynamic>> data;
+  late Map<String, TextEditingController> dataController;
 
   void init(String path) {
+    p = 0;
+    goon = true;
+    field = {};
+    line = 0;
+    data = {};
+    dataController = {};
+
     File file = File(path);
     dbf = file.readAsBytesSync();
 
-    type = typeMap[dbf.getRange(0, 1).first.toRadixString(16)];
-    updateTime =
-        '${dbf.getRange(1, 2).first.toString()}-${dbf.getRange(2, 3).first.toString()}-${dbf.getRange(3, 4).first.toString()}';
     lines =
         ByteData.view(Uint8List.fromList(dbf.getRange(4, 8).toList()).buffer)
             .getUint32(0, Endian.little);
-    rowLength =
+    first =
+        ByteData.view(Uint8List.fromList(dbf.getRange(8, 10).toList()).buffer)
+            .getUint16(0, Endian.little);
+    length =
         ByteData.view(Uint8List.fromList(dbf.getRange(10, 12).toList()).buffer)
             .getUint16(0, Endian.little);
+    p += 32;
 
-    print(dbf.getRange(12, 28));
-    print(dbf.getRange(28, 29));
-    print(dbf.getRange(29, 30));
-    print(dbf.getRange(30, 32));
-    // tableMark = tableMarkMap[dbf.getRange(28, 29).first.toRadixString(16)];
+    while (goon) {
+      Uint8List buf = Uint8List.fromList(dbf.getRange(p, p += 32).toList());
+      if (buf.first == 13) {
+        goon = false;
+      } else {
+        String name = String.fromCharCodes(
+            Uint8List.fromList(buf.getRange(0, 11).toList()));
+        int len = ByteData.view(
+                Uint8List.fromList(buf.getRange(16, 17).toList()).buffer)
+            .getUint8(0);
+        int pre = ByteData.view(
+                Uint8List.fromList(buf.getRange(17, 18).toList()).buffer)
+            .getUint8(0);
 
-    print(type);
-    print(updateTime);
-    print(lines);
-    print(rowLength);
+        field[name] = {'len': len, 'pre': pre};
+      }
+    }
+
+    p = first;
+    while (line < lines) {
+      Uint8List delete = Uint8List.fromList(dbf.getRange(p, p += 1).toList());
+      Uint8List buf =
+          Uint8List.fromList(dbf.getRange(p, p += length - 1).toList());
+
+      if (delete.first.toRadixString(16) == '20') {
+        int i = 0;
+        Map<String, dynamic> row = {};
+        field.forEach((key, value) {
+          row[key] = gbk
+              .decode(buf.getRange(i, i += value['len'] ?? 0).toList())
+              .trim();
+        });
+        data[line] = row;
+      }
+
+      line++;
+    }
   }
-  // late String path;
-  // int p = 0;
-  // int line = 0;
 
-  // read() {
+  Map<String, dynamic> edit(int line, String name, String val) {
+    if (val.length > (field[name]!['len'] ?? 0)) {
+      return {'code': 2, 'message': '超出字段长度[${field[name]!['len'] ?? 0}位]'};
+    }
 
-  //   trans();
-  // }
+    Uint8List value =
+        Uint8List.fromList(gbk.encode(val.padRight(field[name]!['len'] ?? 0)));
 
-  // trans() {
-  //   bool goon = true;
-  //   p += 32;
+    int start = first + length * line + 1;
+    for (var item in field.keys) {
+      if (item.substring(0, name.length) == name) {
+        break;
+      } else {
+        start += field[item]!['len'] ?? 0;
+      }
+    }
 
-  //   int recordCount =
-  //       ByteData.view(Uint8List.fromList(dbf.getRange(4, 8).toList()).buffer)
-  //           .getUint32(0, Endian.little);
-  //   int firstRecord =
-  //       ByteData.view(Uint8List.fromList(dbf.getRange(8, 10).toList()).buffer)
-  //           .getUint16(0, Endian.little);
-  //   int recordLength =
-  //       ByteData.view(Uint8List.fromList(dbf.getRange(10, 12).toList()).buffer)
-  //           .getUint16(0, Endian.little);
+    for (var i = 0; i < (field[name]!['len'] ?? 0); i++) {
+      dbf[start] = value[i];
+      start++;
+    }
 
-  //   while (goon && p <= file.lengthSync()) {
-  //     Uint8List buf = Uint8List.fromList(dbf.getRange(p, p + 32).toList());
-  //     p += 32;
-  //     if (buf.first == 13) {
-  //       goon = false;
-  //     } else {
-  //       List fieldNameCodes = buf.getRange(0, 11).toList();
-  //       int fieldNameP = 0;
-  //       for (var item in fieldNameCodes) {
-  //         if (item == 0) {
-  //           break;
-  //         }
-  //         fieldNameP++;
-  //       }
-  //       String fieldName = String.fromCharCodes(
-  //           Uint8List.fromList(buf.getRange(0, fieldNameP).toList()));
-  //       int fieldLen = ByteData.view(
-  //               Uint8List.fromList(buf.getRange(16, 17).toList()).buffer)
-  //           .getUint8(0);
+    return {'code': 1, 'message': '成功'};
+  }
 
-  //       fieldInfo[fieldName] = fieldLen;
-  //     }
-  //   }
+  Map<String, dynamic> delete(List<int> line) {
+    if (line.isEmpty) {
+      return {'code': 2, 'message': '请勾选删除记录'};
+    }
 
-  //   p = firstRecord + 1;
+    Uint8List value = Uint8List.fromList([int.parse("0x2A")]);
 
-  //   isRead = true;
-  //   readTimer =
-  //       Timer.periodic(const Duration(microseconds: 100), (timer) async {
-  //     for (var i = 0; i < 10000; i++) {
-  //       if (line == recordCount) {
-  //         isRead = false;
-  //         timer.cancel();
-  //         break;
-  //       }
-  //       int j = 0;
-  //       Map row = {};
+    for (var item in line) {
+      int start = first + length * item;
+      dbf[start] = value[0];
+    }
 
-  //       int q = p + recordLength;
-  //       if (q > dbf.length) {
-  //         q = dbf.length;
-  //       }
-
-  //       Uint8List buf = Uint8List.fromList(dbf.getRange(p, q).toList());
-  //       p += recordLength;
-
-  //       fieldInfo.forEach((key, value) {
-  //         int k = j + value;
-  //         if (k > recordLength) {
-  //           k = recordLength;
-  //         }
-
-  //         row[key] = gbk.decode(buf.getRange(j, k).toList()).trim();
-  //         j += value;
-  //       });
-
-  //       _dbfDataSource.source.add(row);
-  //       line++;
-  //     }
-
-  //     _dbfDataSource.sync();
-  //     _dbfDataSource.flush();
-
-  //     isOpen = true;
-  //     setState(() {});
-  //   });
-  // }
-  // }
+    return {'code': 1, 'message': '成功'};
+  }
 }
