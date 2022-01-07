@@ -5,7 +5,7 @@ import 'package:dbf_viewer/dbf.dart';
 
 class DbfDataSource extends DataTableSource {
   late String keyword;
-  late Map<int, Map<String, dynamic>> source;
+  late List<Map<String, dynamic>> source;
   late List<Map<String, dynamic>> list;
   late List<int> select;
   final Dbf _dbf = Get.find();
@@ -14,7 +14,7 @@ class DbfDataSource extends DataTableSource {
   void init(BuildContext context) {
     mainContext = context;
     keyword = '';
-    source = {};
+    source = [];
     list = [];
     select = [];
   }
@@ -33,7 +33,7 @@ class DbfDataSource extends DataTableSource {
   void sync() {
     if (keyword.isNotEmpty) {
       list = [];
-      source.forEach((index, item) {
+      for (var item in source) {
         bool isHave = false;
         item.forEach((key, value) {
           if (value == keyword) {
@@ -44,11 +44,9 @@ class DbfDataSource extends DataTableSource {
         if (isHave) {
           list.add(item);
         }
-      });
+      }
     } else {
-      list = source.keys.map<Map<String, dynamic>>((index) {
-        return source[index]!;
-      }).toList();
+      list = source;
     }
   }
 
@@ -62,7 +60,7 @@ class DbfDataSource extends DataTableSource {
     list[index].forEach((key, value) {
       row.add(DataCell(
         TextField(
-          controller: _dbf.dataController['${index}_$key'],
+          controller: _dbf.dataController['${_dbf.order[index]}_$key'],
           onChanged: (String val) {
             Map<String, dynamic> res = _dbf.edit(index, key, val);
             if (res['code'] == 2) {

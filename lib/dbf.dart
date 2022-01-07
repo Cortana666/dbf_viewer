@@ -14,7 +14,8 @@ class Dbf {
   late bool goon;
   late Map<String, Map<String, int>> field;
   late int line;
-  late Map<int, Map<String, dynamic>> data;
+  late List<Map<String, dynamic>> data;
+  late List<int> order;
   late Map<String, TextEditingController> dataController;
 
   void init(String path) {
@@ -22,7 +23,7 @@ class Dbf {
     goon = true;
     field = {};
     line = 0;
-    data = {};
+    data = [];
     dataController = {};
 
     File file = File(path);
@@ -71,7 +72,7 @@ class Dbf {
               .decode(buf.getRange(i, i += value['len'] ?? 0).toList())
               .trim();
         });
-        data[line] = row;
+        data.add(row);
       }
 
       line++;
@@ -104,14 +105,10 @@ class Dbf {
   }
 
   Map<String, dynamic> delete(List<int> line) {
-    if (line.isEmpty) {
-      return {'code': 2, 'message': '请勾选删除记录'};
-    }
-
     Uint8List value = Uint8List.fromList([int.parse("0x2A")]);
 
     for (var item in line) {
-      int start = first + length * item;
+      int start = first + length * order[item];
       dbf[start] = value[0];
     }
 

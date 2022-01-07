@@ -106,23 +106,50 @@ class _MyHomePageState extends State<MyHomePage> {
                     top: 20,
                   ),
                   child: IconButton(
-                    onPressed: () {
-                      Map<String, dynamic> res =
-                          _dbf.delete(_dbfDataSource.select);
-                      if (res['code'] == 1) {
-                        for (var item in _dbfDataSource.select) {
-                          _dbfDataSource.source.remove(item);
-                        }
-                        _dbfDataSource.sync();
-                        _dbfDataSource.flush();
-                      } else {
+                    onPressed: () async {
+                      if (_dbfDataSource.select.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(res['message']),
-                            duration: const Duration(milliseconds: 500),
+                          const SnackBar(
+                            content: Text('请勾选删除数据'),
+                            duration: Duration(milliseconds: 500),
                             backgroundColor: Colors.red,
                           ),
                         );
+                      } else {
+                        final String? res = await showDialog<String>(
+                          context: context,
+                          builder: (BuildContext context) => AlertDialog(
+                            title: const Text('警告'),
+                            content: Text(
+                                '确定是否删除${_dbfDataSource.select.length}条数据'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, '0'),
+                                child: const Text('取消'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, '1'),
+                                child: const Text('确定'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (res == '1') {
+                          Map<String, dynamic> res =
+                              _dbf.delete(_dbfDataSource.select);
+                          if (res['code'] == 1) {
+                            _dbfDataSource.select
+                                .sort((a, b) => b.compareTo(a));
+                            for (var item in _dbfDataSource.select) {
+                              _dbfDataSource.source.removeAt(item);
+                              _dbf.order.removeAt(item);
+                            }
+                            _dbfDataSource.select = [];
+                            _dbfDataSource.sync();
+                            _dbfDataSource.flush();
+                          }
+                        }
                       }
                     },
                     icon: const Icon(Icons.delete),
@@ -214,13 +241,14 @@ class _MyHomePageState extends State<MyHomePage> {
           _dbf.init(result.files.single.path ?? '');
 
           for (var i = 0; i < _dbf.data.length; i++) {
-            _dbf.data[i]?.forEach((key, value) {
+            _dbf.data[i].forEach((key, value) {
               _dbf.dataController['${i}_$key'] = TextEditingController();
               _dbf.dataController['${i}_$key']?.text = value;
             });
           }
 
           _dbfDataSource.source = _dbf.data;
+          _dbf.order = _dbf.data.asMap().keys.toList();
           _dbfDataSource.sync();
           _dbfDataSource.flush();
           isOpen.value = true;
