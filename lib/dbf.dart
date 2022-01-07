@@ -124,4 +124,33 @@ class Dbf {
 
     return {'code': 1, 'message': '成功'};
   }
+
+  Map<String, dynamic> add() {
+    List<int> rowData = dbf.toList();
+
+    Uint8List linesList = Uint8List(4)
+      ..buffer.asByteData().setInt32(0, lines + 1, Endian.little);
+    rowData[4] = linesList[0];
+    rowData[5] = linesList[1];
+    rowData[6] = linesList[2];
+    rowData[7] = linesList[3];
+
+    rowData.removeLast();
+    rowData.add(int.parse('0x20'));
+    for (var i = 0; i < length - 1; i++) {
+      rowData.add(0);
+    }
+    rowData.add(int.parse('0x1A'));
+    order.add(lines);
+
+    dbf = Uint8List.fromList(rowData);
+
+    field.forEach((key, value) {
+      dataController['${lines}_$key'] = TextEditingController();
+      dataController['${lines}_$key']?.text = '';
+    });
+    lines++;
+
+    return {'code': 1, 'message': '成功'};
+  }
 }

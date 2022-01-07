@@ -62,8 +62,9 @@ class DbfDataSource extends DataTableSource {
         TextField(
           controller: _dbf.dataController['${_dbf.order[index]}_$key'],
           onChanged: (String val) {
-            Map<String, dynamic> res = _dbf.edit(index, key, val);
+            Map<String, dynamic> res = _dbf.edit(_dbf.order[index], key, val);
             if (res['code'] == 2) {
+              _dbf.dataController['${_dbf.order[index]}_$key']?.text = val;
               ScaffoldMessenger.of(mainContext).showSnackBar(
                 SnackBar(
                   content: Text(res['message']),

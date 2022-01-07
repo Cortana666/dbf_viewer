@@ -90,13 +90,25 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   child: IconButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('添加功能开发中'),
-                          duration: Duration(milliseconds: 100),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                      Map<String, dynamic> res = _dbf.add();
+                      if (res['code'] == 1) {
+                        Map<String, dynamic> row = {};
+                        _dbf.field.forEach((key, value) {
+                          row[key] = '';
+                        });
+
+                        _dbf.data.add(row);
+                        _dbfDataSource.sync();
+                        _dbfDataSource.flush();
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('添加完成，请编辑数据'),
+                            duration: Duration(milliseconds: 500),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.add),
                   ),
