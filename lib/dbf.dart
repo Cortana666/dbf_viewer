@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -24,6 +25,7 @@ class Dbf {
     field = {};
     line = 0;
     data = [];
+    order = [];
     dataController = {};
 
     File file = File(path);
@@ -59,24 +61,32 @@ class Dbf {
     }
 
     p = first;
-    while (line < lines) {
-      Uint8List delete = Uint8List.fromList(dbf.getRange(p, p += 1).toList());
-      Uint8List buf =
-          Uint8List.fromList(dbf.getRange(p, p += length - 1).toList());
+    Timer.periodic(const Duration(microseconds: 200), (timer) async {
+      for (var x = 0; x < 10000; x++) {
+        if (line == lines) {
+          timer.cancel();
+          break;
+        }
 
-      if (delete.first.toRadixString(16) == '20') {
-        int i = 0;
-        Map<String, dynamic> row = {};
-        field.forEach((key, value) {
-          row[key] = gbk
-              .decode(buf.getRange(i, i += value['len'] ?? 0).toList())
-              .trim();
-        });
-        data.add(row);
+        Uint8List delete = Uint8List.fromList(dbf.getRange(p, p += 1).toList());
+        Uint8List buf =
+            Uint8List.fromList(dbf.getRange(p, p += length - 1).toList());
+
+        if (delete.first.toRadixString(16) == '20') {
+          int i = 0;
+          Map<String, dynamic> row = {};
+          field.forEach((key, value) {
+            row[key] = gbk
+                .decode(buf.getRange(i, i += value['len'] ?? 0).toList())
+                .trim();
+          });
+          data.add(row);
+          order.add(line);
+        }
+
+        line++;
       }
-
-      line++;
-    }
+    });
   }
 
   Map<String, dynamic> edit(int line, String name, String val) {

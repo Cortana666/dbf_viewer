@@ -148,6 +148,14 @@ class _MyHomePageState extends State<MyHomePage> {
                             _dbfDataSource.select = [];
                             _dbfDataSource.sync();
                             _dbfDataSource.flush();
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('删除完成'),
+                                duration: Duration(milliseconds: 500),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
                           }
                         }
                       }
@@ -236,22 +244,43 @@ class _MyHomePageState extends State<MyHomePage> {
         pageRows.value = 20;
         sortIndex = null;
         sortAscending.value = false;
+        int x = 0;
+        _dbf.init(result.files.single.path ?? '');
 
-        Timer(const Duration(seconds: 1), () {
-          _dbf.init(result.files.single.path ?? '');
-
-          for (var i = 0; i < _dbf.data.length; i++) {
-            _dbf.data[i].forEach((key, value) {
-              _dbf.dataController['${i}_$key'] = TextEditingController();
-              _dbf.dataController['${i}_$key']?.text = value;
-            });
+        Timer.periodic(const Duration(microseconds: 200), (timer) async {
+          int y = x;
+          int j = x;
+          int z = _dbf.data.length;
+          if (_dbf.data.length - x >= 10000) {
+            x += 10000;
+            for (var i = y; i < j + 10000; i++) {
+              _dbf.data[i].forEach((key, value) {
+                _dbf.dataController['${_dbf.order[i]}_$key'] =
+                    TextEditingController();
+                _dbf.dataController['${_dbf.order[i]}_$key']?.text = value;
+              });
+            }
+          } else {
+            if (_dbf.data.length - x > 0) {
+              x = z;
+              for (var i = y; i < z; i++) {
+                _dbf.data[i].forEach((key, value) {
+                  _dbf.dataController['${_dbf.order[i]}_$key'] =
+                      TextEditingController();
+                  _dbf.dataController['${_dbf.order[i]}_$key']?.text = value;
+                });
+              }
+            }
           }
 
-          _dbfDataSource.source = _dbf.data;
-          _dbf.order = _dbf.data.asMap().keys.toList();
-          _dbfDataSource.sync();
-          _dbfDataSource.flush();
-          isOpen.value = true;
+          if (_dbf.lines == _dbf.line) {
+            timer.cancel();
+
+            _dbfDataSource.source = _dbf.data;
+            _dbfDataSource.sync();
+            _dbfDataSource.flush();
+            isOpen.value = true;
+          }
         });
       } else {
         if (!isOpen.value) {
