@@ -10,6 +10,7 @@ class DbfDataSource extends DataTableSource {
   late List<int> select;
   final Dbf _dbf = Get.find();
   late BuildContext mainContext;
+  late List<int> searchOrder;
 
   void init(BuildContext context) {
     mainContext = context;
@@ -17,6 +18,7 @@ class DbfDataSource extends DataTableSource {
     source = [];
     list = [];
     select = [];
+    searchOrder = [];
   }
 
   void sort(String key, bool ascSort) {
@@ -33,16 +35,18 @@ class DbfDataSource extends DataTableSource {
   void sync() {
     if (keyword.isNotEmpty) {
       list = [];
-      for (var item in source) {
+      searchOrder = [];
+      for (var i = 0; i < source.length; i++) {
         bool isHave = false;
-        item.forEach((key, value) {
+        source[i].forEach((key, value) {
           if (value == keyword) {
             isHave = true;
           }
         });
 
         if (isHave) {
-          list.add(item);
+          searchOrder.add(i);
+          list.add(source[i]);
         }
       }
     } else {
@@ -60,7 +64,9 @@ class DbfDataSource extends DataTableSource {
     list[index].forEach((key, value) {
       row.add(DataCell(
         TextField(
-          controller: _dbf.dataController['${_dbf.order[index]}_$key'],
+          controller: keyword.isNotEmpty
+              ? _dbf.dataController['${searchOrder[index]}_$key']
+              : _dbf.dataController['${_dbf.order[index]}_$key'],
           onChanged: (String val) {
             Map<String, dynamic> res = _dbf.edit(_dbf.order[index], key, val);
             if (res['code'] == 2) {
