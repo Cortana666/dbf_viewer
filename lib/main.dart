@@ -104,7 +104,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('添加完成，请编辑数据'),
-                            duration: Duration(milliseconds: 500),
+                            duration: Duration(milliseconds: 1000),
                             backgroundColor: Colors.green,
                           ),
                         );
@@ -122,8 +122,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       if (_dbfDataSource.select.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('请勾选删除数据'),
-                            duration: Duration(milliseconds: 500),
+                            content: Text('请勾选要删除的数据'),
+                            duration: Duration(milliseconds: 1000),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -164,7 +164,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('删除完成'),
-                                duration: Duration(milliseconds: 500),
+                                duration: Duration(milliseconds: 1000),
                                 backgroundColor: Colors.green,
                               ),
                             );
