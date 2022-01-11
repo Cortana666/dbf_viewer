@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import 'package:dbf_viewer/source.dart';
@@ -200,22 +201,34 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   child: IconButton(
                     onPressed: () async {
-                      String? outputFile = await FilePicker.platform.saveFile(
-                        dialogTitle: 'Please select an output file:',
-                        fileName: fileName,
-                        type: FileType.any,
-                        allowedExtensions: ['dbf'],
-                      );
+                      if (Platform.isMacOS ||
+                          Platform.isWindows ||
+                          Platform.isLinux) {
+                        String? outputFile = await FilePicker.platform.saveFile(
+                          dialogTitle: 'Please select an output file:',
+                          fileName: fileName,
+                          type: FileType.any,
+                          allowedExtensions: ['dbf'],
+                        );
 
-                      if (outputFile != null) {
-                        File file = File(outputFile);
-                        await file.writeAsBytes(_dbf.dbfSocket);
+                        if (outputFile != null) {
+                          File file = File(outputFile);
+                          await file.writeAsBytes(_dbf.dbfSocket);
 
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('导出完成'),
+                              duration: Duration(milliseconds: 1000),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('导出完成'),
+                            content: Text('手机端暂不支持导出功能'),
                             duration: Duration(milliseconds: 1000),
-                            backgroundColor: Colors.green,
+                            backgroundColor: Colors.red,
                           ),
                         );
                       }
@@ -269,9 +282,9 @@ class _MyHomePageState extends State<MyHomePage> {
     if (!isChoose.value || (isChoose.value && isOpen.value)) {
       isChoose.value = true;
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['dbf'],
-      );
+          // type: FileType.custom,
+          // allowedExtensions: ['dbf', 'DBF'],
+          );
 
       if (result != null) {
         fileName = result.files.single.name;
@@ -295,6 +308,14 @@ class _MyHomePageState extends State<MyHomePage> {
                 _dbfDataSource.sync();
                 _dbfDataSource.flush();
                 isOpen.value = true;
+
+                if (Platform.isAndroid || Platform.isIOS) {
+                  SystemChrome.setPreferredOrientations([
+                    DeviceOrientation.landscapeLeft,
+                    DeviceOrientation.landscapeRight
+                  ]);
+                }
+
                 break;
               }
 
