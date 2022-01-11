@@ -4,21 +4,19 @@ import 'package:get/get.dart';
 import 'package:dbf_viewer/dbf.dart';
 
 class DbfDataSource extends DataTableSource {
-  late String keyword;
-  late List<Map<String, dynamic>> source;
-  late List<Map<String, dynamic>> list;
-  late List<int> select;
+  String keyword = '';
+  List<int> select = [];
   final Dbf _dbf = Get.find();
   late BuildContext mainContext;
-  late List<int> searchOrder;
+  List<Map<String, dynamic>> list = [];
+  Map<int, Map<String, TextEditingController>> dataController = {};
 
   void init(BuildContext context) {
     mainContext = context;
     keyword = '';
-    source = [];
     list = [];
     select = [];
-    searchOrder = [];
+    dataController = {};
   }
 
   void sort(String key, bool ascSort) {
@@ -35,22 +33,20 @@ class DbfDataSource extends DataTableSource {
   void sync() {
     if (keyword.isNotEmpty) {
       list = [];
-      searchOrder = [];
-      for (var i = 0; i < source.length; i++) {
+      for (var i = 0; i < _dbf.data.length; i++) {
         bool isHave = false;
-        source[i].forEach((key, value) {
+        _dbf.data[i].forEach((key, value) {
           if (value == keyword) {
             isHave = true;
           }
         });
 
         if (isHave) {
-          searchOrder.add(i);
-          list.add(source[i]);
+          list.add(_dbf.data[i]);
         }
       }
     } else {
-      list = source;
+      list = _dbf.data;
     }
   }
 
@@ -61,20 +57,19 @@ class DbfDataSource extends DataTableSource {
   @override
   DataRow? getRow(int index) {
     List<DataCell> row = [];
-    list[index].forEach((key, value) {
+    _dbf.field.forEach((key, value) {
       row.add(DataCell(
         TextField(
-          controller: keyword.isNotEmpty
-              ? _dbf.dataController['${searchOrder[index]}_$key']
-              : _dbf.dataController['${_dbf.order[index]}_$key'],
+          controller: dataController[list[index]['_selfkey']]![key],
           onChanged: (String val) {
-            Map<String, dynamic> res = _dbf.edit(_dbf.order[index], key, val);
+            Map<String, dynamic> res =
+                _dbf.edit(list[index]['_selfkey'], key, val);
             if (res['code'] == 2) {
-              _dbf.dataController['${_dbf.order[index]}_$key']?.text = val;
+              dataController[list[index]['_selfkey']]![key]?.text = val;
               ScaffoldMessenger.of(mainContext).showSnackBar(
                 SnackBar(
                   content: Text(res['message']),
-                  duration: const Duration(milliseconds: 500),
+                  duration: const Duration(milliseconds: 1000),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -87,14 +82,15 @@ class DbfDataSource extends DataTableSource {
         ),
       ));
     });
+
     return DataRow(
       cells: row,
-      selected: select.contains(index),
+      selected: select.contains(list[index]['_selfkey']),
       onSelectChanged: (selected) {
         if (selected!) {
-          select.add(index);
+          select.add(list[index]['_selfkey']);
         } else {
-          select.remove(index);
+          select.remove(list[index]['_selfkey']);
         }
         flush();
       },

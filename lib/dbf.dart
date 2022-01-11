@@ -2,48 +2,48 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:fast_gbk/fast_gbk.dart';
 
 class Dbf {
-  late Uint8List dbf;
-  late Uint8List export;
-  late int lines;
-  late int first;
-  late int length;
-  late int p;
-  late bool goon;
-  late Map<String, Map<String, int>> field;
-  late int line;
-  late List<Map<String, dynamic>> data;
-  late List<int> order;
-  late Map<String, TextEditingController> dataController;
+  late int recordLines;
+  late int recordLength;
+  late Uint8List dbfSocket;
+  late int firstRecordStart;
+
+  int line = 0;
+  int socketP = 0;
+  bool goon = true;
+  bool isRead = false;
+  bool isOpen = false;
+  List<Map<String, dynamic>> data = [];
+  Map<String, Map<String, int>> field = {};
 
   void init(String path) {
-    p = 0;
-    goon = true;
-    field = {};
     line = 0;
+    socketP = 0;
+    goon = true;
+    isRead = false;
+    isOpen = false;
     data = [];
-    order = [];
-    dataController = {};
+    field = {};
 
     File file = File(path);
-    dbf = file.readAsBytesSync();
+    dbfSocket = file.readAsBytesSync();
 
-    lines =
-        ByteData.view(Uint8List.fromList(dbf.getRange(4, 8).toList()).buffer)
-            .getUint32(0, Endian.little);
-    first =
-        ByteData.view(Uint8List.fromList(dbf.getRange(8, 10).toList()).buffer)
-            .getUint16(0, Endian.little);
-    length =
-        ByteData.view(Uint8List.fromList(dbf.getRange(10, 12).toList()).buffer)
-            .getUint16(0, Endian.little);
-    p += 32;
+    recordLines = ByteData.view(
+            Uint8List.fromList(dbfSocket.getRange(4, 8).toList()).buffer)
+        .getUint32(0, Endian.little);
+    firstRecordStart = ByteData.view(
+            Uint8List.fromList(dbfSocket.getRange(8, 10).toList()).buffer)
+        .getUint16(0, Endian.little);
+    recordLength = ByteData.view(
+            Uint8List.fromList(dbfSocket.getRange(10, 12).toList()).buffer)
+        .getUint16(0, Endian.little);
+    socketP += 32;
 
     while (goon) {
-      Uint8List buf = Uint8List.fromList(dbf.getRange(p, p += 32).toList());
+      Uint8List buf = Uint8List.fromList(
+          dbfSocket.getRange(socketP, socketP += 32).toList());
       if (buf.first == 13) {
         goon = false;
       } else {
@@ -60,31 +60,43 @@ class Dbf {
       }
     }
 
-    p = first;
+    socketP = firstRecordStart;
     Timer.periodic(const Duration(microseconds: 200), (timer) async {
-      for (var x = 0; x < 10000; x++) {
-        if (line == lines) {
-          timer.cancel();
-          break;
+      if (!isRead) {
+        isRead = true;
+        for (var x = 0; x < 10000; x++) {
+          if (socketP == dbfSocket.length) {
+            timer.cancel();
+            isOpen = true;
+            break;
+          }
+
+          Uint8List flag = Uint8List.fromList(
+              dbfSocket.getRange(socketP, socketP += 1).toList());
+          if (flag.first.toRadixString(16) == '1a') {
+            timer.cancel();
+            isOpen = true;
+            break;
+          }
+
+          Uint8List buf = Uint8List.fromList(dbfSocket
+              .getRange(socketP, socketP += recordLength - 1)
+              .toList());
+          if (flag.first.toRadixString(16) == '20') {
+            int i = 0;
+            Map<String, dynamic> row = {};
+            field.forEach((key, value) {
+              row[key] = gbk
+                  .decode(buf.getRange(i, i += value['len'] ?? 0).toList())
+                  .trim();
+            });
+            row['_selfkey'] = line;
+            data.add(row);
+          }
+
+          line++;
         }
-
-        Uint8List delete = Uint8List.fromList(dbf.getRange(p, p += 1).toList());
-        Uint8List buf =
-            Uint8List.fromList(dbf.getRange(p, p += length - 1).toList());
-
-        if (delete.first.toRadixString(16) == '20') {
-          int i = 0;
-          Map<String, dynamic> row = {};
-          field.forEach((key, value) {
-            row[key] = gbk
-                .decode(buf.getRange(i, i += value['len'] ?? 0).toList())
-                .trim();
-          });
-          data.add(row);
-          order.add(line);
-        }
-
-        line++;
+        isRead = false;
       }
     });
   }
@@ -97,7 +109,7 @@ class Dbf {
     Uint8List value =
         Uint8List.fromList(gbk.encode(val.padRight(field[name]!['len'] ?? 0)));
 
-    int start = first + length * line + 1;
+    int start = firstRecordStart + recordLength * line + 1;
     for (var item in field.keys) {
       if (item.substring(0, name.length) == name) {
         break;
@@ -107,7 +119,7 @@ class Dbf {
     }
 
     for (var i = 0; i < (field[name]!['len'] ?? 0); i++) {
-      dbf[start] = value[i];
+      dbfSocket[start] = value[i];
       start++;
     }
 
@@ -118,18 +130,18 @@ class Dbf {
     Uint8List value = Uint8List.fromList([int.parse("0x2A")]);
 
     for (var item in line) {
-      int start = first + length * order[item];
-      dbf[start] = value[0];
+      int start = firstRecordStart + recordLength * item;
+      dbfSocket[start] = value[0];
     }
 
     return {'code': 1, 'message': '成功'};
   }
 
   Map<String, dynamic> add() {
-    List<int> rowData = dbf.toList();
+    List<int> rowData = dbfSocket.toList();
 
     Uint8List linesList = Uint8List(4)
-      ..buffer.asByteData().setInt32(0, lines + 1, Endian.little);
+      ..buffer.asByteData().setInt32(0, recordLines + 1, Endian.little);
     rowData[4] = linesList[0];
     rowData[5] = linesList[1];
     rowData[6] = linesList[2];
@@ -137,19 +149,14 @@ class Dbf {
 
     rowData.removeLast();
     rowData.add(int.parse('0x20'));
-    for (var i = 0; i < length - 1; i++) {
+    for (var i = 0; i < recordLength - 1; i++) {
       rowData.add(0);
     }
     rowData.add(int.parse('0x1A'));
-    order.add(lines);
 
-    dbf = Uint8List.fromList(rowData);
+    dbfSocket = Uint8List.fromList(rowData);
 
-    field.forEach((key, value) {
-      dataController['${lines}_$key'] = TextEditingController();
-      dataController['${lines}_$key']?.text = '';
-    });
-    lines++;
+    recordLines++;
 
     return {'code': 1, 'message': '成功'};
   }

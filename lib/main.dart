@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
 
-import 'package:dbf_viewer/data_source.dart';
+import 'package:dbf_viewer/source.dart';
 import 'package:dbf_viewer/dbf.dart';
 
 void main() => runApp(const MyApp());
@@ -35,11 +35,13 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   RxBool isChoose = false.obs;
   RxBool isOpen = false.obs;
+  bool isRead = false;
 
   RxInt pageRows = 20.obs;
   RxInt? sortIndex;
   RxBool sortAscending = false.obs;
 
+  late String fileName;
   final Dbf _dbf = Get.put(Dbf());
   final DbfDataSource _dbfDataSource = Get.put(DbfDataSource());
   final TextEditingController _searchController = TextEditingController();
@@ -93,8 +95,19 @@ class _MyHomePageState extends State<MyHomePage> {
                       Map<String, dynamic> res = _dbf.add();
                       if (res['code'] == 1) {
                         Map<String, dynamic> row = {};
+                        _dbfDataSource.dataController[_dbf.recordLines - 1] =
+                            {};
                         _dbf.field.forEach((key, value) {
                           row[key] = '';
+                        });
+                        row['_selfkey'] = _dbf.recordLines - 1;
+                        _dbf.field.forEach((key, value) {
+                          _dbfDataSource
+                                  .dataController[_dbf.recordLines - 1]![key] =
+                              TextEditingController();
+                          _dbfDataSource
+                              .dataController[_dbf.recordLines - 1]![key]
+                              ?.text = '';
                         });
 
                         _dbf.data.add(row);
@@ -151,12 +164,18 @@ class _MyHomePageState extends State<MyHomePage> {
                           Map<String, dynamic> res =
                               _dbf.delete(_dbfDataSource.select);
                           if (res['code'] == 1) {
-                            _dbfDataSource.select
-                                .sort((a, b) => b.compareTo(a));
-                            for (var item in _dbfDataSource.select) {
-                              _dbfDataSource.source.removeAt(item);
-                              _dbf.order.removeAt(item);
-                            }
+                            _dbf.data
+                                .asMap()
+                                .keys
+                                .toList()
+                                .reversed
+                                .forEach((element) {
+                              if (_dbfDataSource.select
+                                  .contains(_dbf.data[element]['_selfkey'])) {
+                                _dbf.data.removeAt(element);
+                              }
+                            });
+
                             _dbfDataSource.select = [];
                             _dbfDataSource.sync();
                             _dbfDataSource.flush();
@@ -183,14 +202,14 @@ class _MyHomePageState extends State<MyHomePage> {
                     onPressed: () async {
                       String? outputFile = await FilePicker.platform.saveFile(
                         dialogTitle: 'Please select an output file:',
-                        fileName: 'output-file.dbf',
+                        fileName: fileName,
                         type: FileType.any,
                         allowedExtensions: ['dbf'],
                       );
 
                       if (outputFile != null) {
                         File file = File(outputFile);
-                        await file.writeAsBytes(_dbf.dbf);
+                        await file.writeAsBytes(_dbf.dbfSocket);
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -216,7 +235,11 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     onSort: (index, ascSort) {
                       _dbfDataSource.sort(key, ascSort);
-                      sortIndex?.value = index;
+                      if (sortIndex == null) {
+                        sortIndex = index.obs;
+                      } else {
+                        sortIndex?.value = index;
+                      }
                       sortAscending.value = ascSort;
                     });
               }).toList(),
@@ -251,47 +274,43 @@ class _MyHomePageState extends State<MyHomePage> {
       );
 
       if (result != null) {
+        fileName = result.files.single.name;
         _dbfDataSource.init(context);
         isOpen.value = false;
+        isRead = false;
         pageRows.value = 20;
         sortIndex = null;
         sortAscending.value = false;
-        int x = 0;
+        _searchController.text = '';
         _dbf.init(result.files.single.path ?? '');
 
         Timer.periodic(const Duration(microseconds: 200), (timer) async {
-          int y = x;
-          int j = x;
-          int z = _dbf.data.length;
-          if (_dbf.data.length - x >= 10000) {
-            x += 10000;
-            for (var i = y; i < j + 10000; i++) {
+          if (!isRead && _dbf.isOpen) {
+            isRead = true;
+            for (var i = _dbfDataSource.dataController.length;
+                i < _dbfDataSource.dataController.length + 10000;
+                i++) {
+              if (_dbfDataSource.dataController.length == _dbf.data.length) {
+                timer.cancel();
+                _dbfDataSource.sync();
+                _dbfDataSource.flush();
+                isOpen.value = true;
+                break;
+              }
+
               _dbf.data[i].forEach((key, value) {
-                _dbf.dataController['${_dbf.order[i]}_$key'] =
+                if (!_dbfDataSource.dataController
+                    .containsKey(_dbf.data[i]['_selfkey'])) {
+                  _dbfDataSource.dataController[_dbf.data[i]['_selfkey']] = {};
+                }
+                _dbfDataSource.dataController[_dbf.data[i]['_selfkey']]![key] =
                     TextEditingController();
-                _dbf.dataController['${_dbf.order[i]}_$key']?.text = value;
+                _dbfDataSource.dataController[_dbf.data[i]['_selfkey']]![key]
+                    ?.text = value.toString();
               });
             }
-          } else {
-            if (_dbf.data.length - x > 0) {
-              x = z;
-              for (var i = y; i < z; i++) {
-                _dbf.data[i].forEach((key, value) {
-                  _dbf.dataController['${_dbf.order[i]}_$key'] =
-                      TextEditingController();
-                  _dbf.dataController['${_dbf.order[i]}_$key']?.text = value;
-                });
-              }
-            }
-          }
 
-          if (_dbf.lines == _dbf.line) {
-            timer.cancel();
-
-            _dbfDataSource.source = _dbf.data;
-            _dbfDataSource.sync();
-            _dbfDataSource.flush();
-            isOpen.value = true;
+            isRead = false;
           }
         });
       } else {
@@ -303,7 +322,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('正在处理文件，请稍候'),
-          duration: Duration(milliseconds: 500),
+          duration: Duration(milliseconds: 1000),
           backgroundColor: Colors.red,
         ),
       );
