@@ -282,9 +282,9 @@ class _MyHomePageState extends State<MyHomePage> {
     if (!isChoose.value || (isChoose.value && isOpen.value)) {
       isChoose.value = true;
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-          // type: FileType.custom,
-          // allowedExtensions: ['dbf', 'DBF'],
-          );
+        type: FileType.custom,
+        allowedExtensions: ['dbf', 'DBF'],
+      );
 
       if (result != null) {
         fileName = result.files.single.name;

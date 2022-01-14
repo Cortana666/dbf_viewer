@@ -64,8 +64,19 @@ class DbfDataSource extends DataTableSource {
           onChanged: (String val) {
             Map<String, dynamic> res =
                 _dbf.edit(list[index]['_selfkey'], key, val);
-            if (res['code'] == 2) {
-              dataController[list[index]['_selfkey']]![key]?.text = val;
+            if (res['code'] == 1) {
+              for (var element in _dbf.data) {
+                if (element['_selfkey'] == list[index]['_selfkey']) {
+                  element[key] = val;
+                }
+              }
+            } else {
+              for (var element in _dbf.data) {
+                if (element['_selfkey'] == list[index]['_selfkey']) {
+                  dataController[list[index]['_selfkey']]![key]?.text =
+                      element[key];
+                }
+              }
               ScaffoldMessenger.of(mainContext).showSnackBar(
                 SnackBar(
                   content: Text(res['message']),
