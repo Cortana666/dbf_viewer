@@ -50,221 +50,303 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _initBody() {
     if (isChoose.value) {
       if (isOpen.value) {
-        return ListView(
-          children: [
-            PaginatedDataTable(
-              header: Container(
+        return SingleChildScrollView(
+          child: PaginatedDataTable(
+            header: Container(
+              margin: const EdgeInsets.only(
+                top: 20,
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 200,
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: '待搜索文本',
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(
+                      left: 5,
+                    ),
+                    height: 50,
+                    child: ElevatedButton(
+                      child: const Text('搜索'),
+                      onPressed: () {
+                        _dbfDataSource.keyword = _searchController.text;
+                        _dbfDataSource.sync();
+                        _dbfDataSource.flush();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              Container(
                 margin: const EdgeInsets.only(
                   top: 20,
                 ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 200,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: '待搜索文本',
+                child: IconButton(
+                  onPressed: () {
+                    Map<String, dynamic> res = _dbf.add();
+                    if (res['code'] == 1) {
+                      Map<String, dynamic> row = {};
+                      _dbfDataSource.dataController[_dbf.recordLines - 1] = {};
+                      _dbf.field.forEach((key, value) {
+                        row[key] = '';
+                      });
+                      row['_selfkey'] = _dbf.recordLines - 1;
+                      _dbf.field.forEach((key, value) {
+                        _dbfDataSource
+                                .dataController[_dbf.recordLines - 1]![key] =
+                            TextEditingController();
+                        _dbfDataSource
+                            .dataController[_dbf.recordLines - 1]![key]
+                            ?.text = '';
+                      });
+
+                      _dbf.data.add(row);
+                      _dbfDataSource.sync();
+                      _dbfDataSource.flush();
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('添加完成，请编辑数据'),
+                          duration: Duration(milliseconds: 1000),
+                          backgroundColor: Colors.green,
                         ),
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.only(
-                        left: 5,
-                      ),
-                      height: 50,
-                      child: ElevatedButton(
-                        child: const Text('搜索'),
-                        onPressed: () {
-                          _dbfDataSource.keyword = _searchController.text;
-                          _dbfDataSource.sync();
-                          _dbfDataSource.flush();
-                        },
-                      ),
-                    ),
-                  ],
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.add_circle_outline),
                 ),
               ),
-              actions: [
-                Container(
-                  margin: const EdgeInsets.only(
-                    top: 20,
-                  ),
-                  child: IconButton(
-                    onPressed: () {
-                      Map<String, dynamic> res = _dbf.add();
-                      if (res['code'] == 1) {
-                        Map<String, dynamic> row = {};
-                        _dbfDataSource.dataController[_dbf.recordLines - 1] =
-                            {};
-                        _dbf.field.forEach((key, value) {
-                          row[key] = '';
-                        });
-                        row['_selfkey'] = _dbf.recordLines - 1;
-                        _dbf.field.forEach((key, value) {
-                          _dbfDataSource
-                                  .dataController[_dbf.recordLines - 1]![key] =
-                              TextEditingController();
-                          _dbfDataSource
-                              .dataController[_dbf.recordLines - 1]![key]
-                              ?.text = '';
-                        });
-
-                        _dbf.data.add(row);
-                        _dbfDataSource.sync();
-                        _dbfDataSource.flush();
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('添加完成，请编辑数据'),
-                            duration: Duration(milliseconds: 1000),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.add),
-                  ),
+              Container(
+                margin: const EdgeInsets.only(
+                  top: 20,
                 ),
-                Container(
-                  margin: const EdgeInsets.only(
-                    top: 20,
-                  ),
-                  child: IconButton(
-                    onPressed: () async {
-                      if (_dbfDataSource.select.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('请勾选要删除的数据'),
-                            duration: Duration(milliseconds: 1000),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      } else {
-                        final String? res = await showDialog<String>(
-                          context: context,
-                          builder: (BuildContext context) => AlertDialog(
-                            title: const Text('警告'),
-                            content: Text(
-                                '确定是否删除${_dbfDataSource.select.length}条数据'),
-                            actions: <Widget>[
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, '0'),
-                                child: const Text('取消'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, '1'),
-                                child: const Text('确定'),
-                              ),
-                            ],
-                          ),
-                        );
+                child: IconButton(
+                  onPressed: () async {
+                    if (_dbfDataSource.select.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('请勾选要删除的数据'),
+                          duration: Duration(milliseconds: 1000),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    } else {
+                      final String? res = await showDialog<String>(
+                        context: context,
+                        builder: (BuildContext context) => AlertDialog(
+                          title: const Text('警告'),
+                          content:
+                              Text('确定是否删除${_dbfDataSource.select.length}条数据'),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, '0'),
+                              child: const Text('取消'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, '1'),
+                              child: const Text('确定'),
+                            ),
+                          ],
+                        ),
+                      );
 
-                        if (res == '1') {
-                          Map<String, dynamic> res =
-                              _dbf.delete(_dbfDataSource.select);
-                          if (res['code'] == 1) {
-                            _dbf.data
-                                .asMap()
-                                .keys
-                                .toList()
-                                .reversed
-                                .forEach((element) {
-                              if (_dbfDataSource.select
-                                  .contains(_dbf.data[element]['_selfkey'])) {
-                                _dbf.data.removeAt(element);
-                              }
-                            });
+                      if (res == '1') {
+                        Map<String, dynamic> res =
+                            _dbf.delete(_dbfDataSource.select);
+                        if (res['code'] == 1) {
+                          _dbf.data
+                              .asMap()
+                              .keys
+                              .toList()
+                              .reversed
+                              .forEach((element) {
+                            if (_dbfDataSource.select
+                                .contains(_dbf.data[element]['_selfkey'])) {
+                              _dbf.data.removeAt(element);
+                            }
+                          });
 
-                            _dbfDataSource.select = [];
-                            _dbfDataSource.sync();
-                            _dbfDataSource.flush();
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('删除完成'),
-                                duration: Duration(milliseconds: 1000),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.delete),
-                  ),
-                ),
-                Container(
-                  margin: const EdgeInsets.only(
-                    top: 20,
-                  ),
-                  child: IconButton(
-                    onPressed: () async {
-                      if (Platform.isMacOS ||
-                          Platform.isWindows ||
-                          Platform.isLinux) {
-                        String? outputFile = await FilePicker.platform.saveFile(
-                          dialogTitle: 'Please select an output file:',
-                          fileName: fileName,
-                          type: FileType.any,
-                          allowedExtensions: ['dbf'],
-                        );
-
-                        if (outputFile != null) {
-                          File file = File(outputFile);
-                          await file.writeAsBytes(_dbf.dbfSocket);
+                          _dbfDataSource.select = [];
+                          _dbfDataSource.sync();
+                          _dbfDataSource.flush();
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('导出完成'),
+                              content: Text('删除完成'),
                               duration: Duration(milliseconds: 1000),
                               backgroundColor: Colors.green,
                             ),
                           );
                         }
-                      } else {
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.remove_circle_outline),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(
+                  top: 20,
+                ),
+                child: IconButton(
+                  onPressed: () async {
+                    await showDialog<String>(
+                      context: context,
+                      builder: (BuildContext context) => AlertDialog(
+                        content: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              SingleChildScrollView(
+                                child: DataTable(
+                                  columnSpacing: 10,
+                                  columns: const <DataColumn>[
+                                    DataColumn(
+                                      label: SelectableText('字段名称'),
+                                    ),
+                                    DataColumn(
+                                      label: SelectableText('字段类型'),
+                                    ),
+                                    DataColumn(
+                                      label: SelectableText('字段长度'),
+                                    ),
+                                    DataColumn(
+                                      label: SelectableText('小数位数'),
+                                    ),
+                                  ],
+                                  rows: _dbf.field.keys.map((key) {
+                                    return DataRow(
+                                      cells: <DataCell>[
+                                        DataCell(SelectableText(key)),
+                                        DataCell(SelectableText(
+                                            _dbf.field[key]!['type'])),
+                                        DataCell(SelectableText(_dbf
+                                            .field[key]!['len']
+                                            .toString())),
+                                        DataCell(SelectableText(_dbf
+                                            .field[key]!['dec']
+                                            .toString())),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              DataTable(
+                                columnSpacing: 10,
+                                columns: <DataColumn>[
+                                  const DataColumn(
+                                    label: SelectableText('文件版本'),
+                                  ),
+                                  DataColumn(
+                                    label: SelectableText(_dbf.dbfEdition),
+                                  ),
+                                ],
+                                rows: <DataRow>[
+                                  DataRow(
+                                    cells: <DataCell>[
+                                      const DataCell(SelectableText('更新时间')),
+                                      DataCell(SelectableText(_dbf.updateTime)),
+                                    ],
+                                  ),
+                                  DataRow(
+                                    cells: <DataCell>[
+                                      const DataCell(SelectableText('数据条数')),
+                                      DataCell(SelectableText(
+                                          _dbf.recordLines.toString())),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('关闭'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.info_outline),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(
+                  top: 20,
+                ),
+                child: IconButton(
+                  onPressed: () async {
+                    if (Platform.isMacOS ||
+                        Platform.isWindows ||
+                        Platform.isLinux) {
+                      String? outputFile = await FilePicker.platform.saveFile(
+                        dialogTitle: 'Please select an output file:',
+                        fileName: fileName,
+                        type: FileType.any,
+                        allowedExtensions: ['dbf'],
+                      );
+
+                      if (outputFile != null) {
+                        File file = File(outputFile);
+                        await file.writeAsBytes(_dbf.dbfSocket);
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('手机端暂不支持导出功能'),
+                            content: Text('导出完成'),
                             duration: Duration(milliseconds: 1000),
-                            backgroundColor: Colors.red,
+                            backgroundColor: Colors.green,
                           ),
                         );
                       }
-                    },
-                    icon: const Icon(Icons.download),
-                  ),
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('手机端暂不支持导出功能'),
+                          duration: Duration(milliseconds: 1000),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.download_for_offline_outlined),
                 ),
-              ],
-              showCheckboxColumn: true,
-              sortColumnIndex: sortIndex?.value,
-              sortAscending: sortAscending.value,
-              columns: _dbf.field.keys.map((key) {
-                return DataColumn(
-                    label: Text(
-                      key,
-                      style: const TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                    onSort: (index, ascSort) {
-                      _dbfDataSource.sort(key, ascSort);
-                      if (sortIndex == null) {
-                        sortIndex = index.obs;
-                      } else {
-                        sortIndex?.value = index;
-                      }
-                      sortAscending.value = ascSort;
-                    });
-              }).toList(),
-              source: _dbfDataSource,
-              rowsPerPage: pageRows.value,
-              showFirstLastButtons: true,
-              availableRowsPerPage: const [20, 50, 100, 500, 1000],
-              onRowsPerPageChanged: (value) {
-                pageRows.value = value!;
-              },
-            ),
-          ],
+              ),
+            ],
+            showCheckboxColumn: true,
+            sortColumnIndex: sortIndex?.value,
+            sortAscending: sortAscending.value,
+            columns: _dbf.field.keys.map((key) {
+              return DataColumn(
+                  label: Text(key),
+                  onSort: (index, ascSort) {
+                    _dbfDataSource.sort(key, ascSort);
+                    if (sortIndex == null) {
+                      sortIndex = index.obs;
+                    } else {
+                      sortIndex?.value = index;
+                    }
+                    sortAscending.value = ascSort;
+                  });
+            }).toList(),
+            source: _dbfDataSource,
+            rowsPerPage: pageRows.value,
+            showFirstLastButtons: true,
+            availableRowsPerPage: const [20, 50, 100, 200, 500],
+            onRowsPerPageChanged: (value) {
+              pageRows.value = value!;
+            },
+          ),
         );
       } else {
         return const Center(
@@ -282,9 +364,9 @@ class _MyHomePageState extends State<MyHomePage> {
     if (!isChoose.value || (isChoose.value && isOpen.value)) {
       isChoose.value = true;
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['dbf', 'DBF'],
-      );
+          // type: FileType.custom,
+          // allowedExtensions: ['dbf', 'DBF'],
+          );
 
       if (result != null) {
         fileName = result.files.single.name;

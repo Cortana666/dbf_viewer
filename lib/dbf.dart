@@ -5,6 +5,22 @@ import 'dart:typed_data';
 import 'package:fast_gbk/fast_gbk.dart';
 
 class Dbf {
+  final Map<String, String> dbfEditions = {
+    '2': 'FoxBASE',
+    '3': 'FoxBASE+/Dbase III plus, no memo',
+    '30': 'Visual FoxPro',
+    '31': 'Visual FoxPro, autoincrement enabled',
+    '43': 'dBASE IV SQL table files, no memo',
+    '63': 'dBASE IV SQL system files, no memo',
+    '83': 'FoxBASE+/dBASE III PLUS, with memo',
+    '8b': 'dBASE IV with memo',
+    'cb': 'dBASE IV SQL table files, with memo',
+    'f5': 'FoxPro 2.x (or earlier) with memo',
+    'fb': 'FoxBASE'
+  };
+
+  late String dbfEdition;
+  late String updateTime;
   late int recordLines;
   late int recordLength;
   late Uint8List dbfSocket;
@@ -16,7 +32,7 @@ class Dbf {
   bool isRead = false;
   bool isOpen = false;
   List<Map<String, dynamic>> data = [];
-  Map<String, Map<String, int>> field = {};
+  Map<String, Map<String, dynamic>> field = {};
 
   void init(String path) {
     line = 0;
@@ -29,7 +45,14 @@ class Dbf {
 
     File file = File(path);
     dbfSocket = file.readAsBytesSync();
-
+    dbfEdition = Uint8List.fromList(dbfSocket.getRange(0, 1).toList())
+        .first
+        .toRadixString(16);
+    dbfEdition = (dbfEditions.containsKey(dbfEdition)
+        ? dbfEditions[dbfEdition]
+        : dbfEdition)!;
+    updateTime =
+        '${dbfSocket.getRange(1, 2).first}-${dbfSocket.getRange(2, 3).first}-${dbfSocket.getRange(3, 4).first}';
     recordLines = ByteData.view(
             Uint8List.fromList(dbfSocket.getRange(4, 8).toList()).buffer)
         .getUint32(0, Endian.little);
@@ -49,14 +72,16 @@ class Dbf {
       } else {
         String name = String.fromCharCodes(
             Uint8List.fromList(buf.getRange(0, 11).toList()));
+        String type = String.fromCharCodes(
+            Uint8List.fromList(buf.getRange(11, 12).toList()));
         int len = ByteData.view(
                 Uint8List.fromList(buf.getRange(16, 17).toList()).buffer)
             .getUint8(0);
-        int pre = ByteData.view(
+        int dec = ByteData.view(
                 Uint8List.fromList(buf.getRange(17, 18).toList()).buffer)
             .getUint8(0);
 
-        field[name] = {'len': len, 'pre': pre};
+        field[name] = {'type': type, 'len': len, 'dec': dec};
       }
     }
 
@@ -87,7 +112,7 @@ class Dbf {
             Map<String, dynamic> row = {};
             field.forEach((key, value) {
               row[key] = gbk
-                  .decode(buf.getRange(i, i += value['len'] ?? 0).toList())
+                  .decode(buf.getRange(i, i += value['len'] as int).toList())
                   .trim();
             });
             row['_selfkey'] = line;
@@ -99,6 +124,12 @@ class Dbf {
         isRead = false;
       }
     });
+  }
+
+  void editTime() {
+    dbfSocket[1] = int.parse(DateTime.now().year.toString().substring(2));
+    dbfSocket[2] = DateTime.now().month;
+    dbfSocket[3] = DateTime.now().day;
   }
 
   Map<String, dynamic> edit(int line, String name, String val) {
@@ -114,7 +145,7 @@ class Dbf {
       if (item.substring(0, name.length) == name) {
         break;
       } else {
-        start += field[item]!['len'] ?? 0;
+        start += field[item]!['len'] as int;
       }
     }
 
@@ -122,6 +153,8 @@ class Dbf {
       dbfSocket[start] = value[i];
       start++;
     }
+
+    editTime();
 
     return {'code': 1, 'message': '成功'};
   }
@@ -133,6 +166,8 @@ class Dbf {
       int start = firstRecordStart + recordLength * item;
       dbfSocket[start] = value[0];
     }
+
+    editTime();
 
     return {'code': 1, 'message': '成功'};
   }
@@ -157,6 +192,8 @@ class Dbf {
     dbfSocket = Uint8List.fromList(rowData);
 
     recordLines++;
+
+    editTime();
 
     return {'code': 1, 'message': '成功'};
   }
