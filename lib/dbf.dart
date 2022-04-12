@@ -182,7 +182,9 @@ class Dbf {
     rowData[6] = linesList[2];
     rowData[7] = linesList[3];
 
-    rowData.removeLast();
+    if (rowData.last.toRadixString(16) == '1a') {
+      rowData.removeLast();
+    }
     rowData.add(int.parse('0x20'));
     for (var i = 0; i < recordLength - 1; i++) {
       rowData.add(0);
