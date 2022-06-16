@@ -70,8 +70,9 @@ class Dbf {
       if (buf.first == 13) {
         goon = false;
       } else {
-        String name = String.fromCharCodes(
-            Uint8List.fromList(buf.getRange(0, 11).toList()));
+        List<int> nameList = buf.getRange(0, 11).toList();
+        nameList.removeWhere((item) => item == 0);
+        String name = String.fromCharCodes(Uint8List.fromList(nameList));
         String type = String.fromCharCodes(
             Uint8List.fromList(buf.getRange(11, 12).toList()));
         int len = ByteData.view(
