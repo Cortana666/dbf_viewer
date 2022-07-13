@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-
 import 'package:dbf_viewer/dbf.dart';
 
-class DbfDataSource extends DataTableSource {
+class DbfSource extends DataTableSource {
   String keyword = '';
   List<int> select = [];
-  final Dbf _dbf = Get.find();
+  late Dbf dbfController;
   late BuildContext mainContext;
   List<Map<String, dynamic>> list = [];
   Map<int, Map<String, TextEditingController>> dataController = {};
 
-  void init(BuildContext context) {
+  void init(BuildContext context, Dbf dbf) {
+    dbfController = dbf;
     mainContext = context;
     keyword = '';
     list = [];
@@ -33,20 +32,20 @@ class DbfDataSource extends DataTableSource {
   void sync() {
     if (keyword.isNotEmpty) {
       list = [];
-      for (var i = 0; i < _dbf.data.length; i++) {
+      for (var i = 0; i < dbfController.data.length; i++) {
         bool isHave = false;
-        _dbf.data[i].forEach((key, value) {
+        dbfController.data[i].forEach((key, value) {
           if (value == keyword) {
             isHave = true;
           }
         });
 
         if (isHave) {
-          list.add(_dbf.data[i]);
+          list.add(dbfController.data[i]);
         }
       }
     } else {
-      list = _dbf.data;
+      list = dbfController.data;
     }
   }
 
@@ -57,21 +56,21 @@ class DbfDataSource extends DataTableSource {
   @override
   DataRow? getRow(int index) {
     List<DataCell> row = [];
-    _dbf.field.forEach((key, value) {
+    dbfController.field.forEach((key, value) {
       row.add(DataCell(
         TextField(
           controller: dataController[list[index]['_selfkey']]![key],
           onChanged: (String val) {
             Map<String, dynamic> res =
-                _dbf.edit(list[index]['_selfkey'], key, val);
+                dbfController.edit(list[index]['_selfkey'], key, val);
             if (res['code'] == 1) {
-              for (var element in _dbf.data) {
+              for (var element in dbfController.data) {
                 if (element['_selfkey'] == list[index]['_selfkey']) {
                   element[key] = val;
                 }
               }
             } else {
-              for (var element in _dbf.data) {
+              for (var element in dbfController.data) {
                 if (element['_selfkey'] == list[index]['_selfkey']) {
                   dataController[list[index]['_selfkey']]![key]?.text =
                       element[key];
