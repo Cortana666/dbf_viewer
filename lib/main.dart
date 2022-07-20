@@ -1,14 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-// import 'package:flutter/cupertino.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:collection/collection.dart';
-// import 'package:file_picker/file_picker.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
-import 'package:dbf_viewer/index.dart';
 import 'package:dbf_viewer/about.dart';
+import 'package:dbf_viewer/index.dart';
+import 'package:dbf_viewer/info.dart';
 import 'package:dbf_viewer/table.dart' as data_table;
 
 void main(List<String> args) {
@@ -24,7 +23,13 @@ void main(List<String> args) {
       ));
     }
     if (arguments['window_type'] == 'about') {
-      runApp(AboutWindow(
+      runApp(About(
+        windowController: WindowController.fromWindowId(windowId),
+        args: arguments,
+      ));
+    }
+    if (arguments['window_type'] == 'info') {
+      runApp(Info(
         windowController: WindowController.fromWindowId(windowId),
         args: arguments,
       ));

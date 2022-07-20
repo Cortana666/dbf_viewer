@@ -21,50 +21,48 @@ class _IndexState extends State<Index> {
 
   @override
   Widget build(BuildContext context) {
-    return PlatformMenuBar(
-      menus: Menu().menu(),
-      body: MacosWindow(
-        sidebar: Sidebar(
-          minWidth: 200,
-          builder: (context, scrollController) => SidebarItems(
-            currentIndex: _pageIndex,
-            onChanged: (index) async {
-              final prefs = await SharedPreferences.getInstance();
-              int? counter = prefs.getInt('counter');
-              if (counter != null) {
-                for (var i = 0; i <= counter; i++) {
-                  history[i] = {
-                    'name': prefs.getString('file_{$i}_name')!,
-                    'path': prefs.getString('file_{$i}_path')!
-                  };
-                }
+    Widget body = MacosWindow(
+      sidebar: Sidebar(
+        minWidth: 200,
+        builder: (context, scrollController) => SidebarItems(
+          currentIndex: _pageIndex,
+          onChanged: (index) async {
+            final prefs = await SharedPreferences.getInstance();
+            int? counter = prefs.getInt('counter');
+            if (counter != null) {
+              for (var i = 0; i <= counter; i++) {
+                history[i] = {
+                  'name': prefs.getString('file_{$i}_name')!,
+                  'path': prefs.getString('file_{$i}_path')!
+                };
               }
-              setState(() => _pageIndex = index);
-            },
-            items: const [
-              SidebarItem(
-                leading: MacosIcon(CupertinoIcons.home),
-                label: Text('首页'),
-              ),
-              SidebarItem(
-                leading:
-                    MacosIcon(CupertinoIcons.rectangle_stack_fill_badge_plus),
-                label: Text('历史记录'),
-              ),
-            ],
-          ),
-        ),
-        child: IndexedStack(
-          index: _pageIndex,
-          children: [
-            const HomePage(),
-            HistoryPage(
-              history: history,
+            }
+            setState(() => _pageIndex = index);
+          },
+          items: const [
+            SidebarItem(
+              leading: MacosIcon(CupertinoIcons.home),
+              label: Text('首页'),
+            ),
+            SidebarItem(
+              leading:
+                  MacosIcon(CupertinoIcons.rectangle_stack_fill_badge_plus),
+              label: Text('历史记录'),
             ),
           ],
         ),
       ),
+      child: IndexedStack(
+        index: _pageIndex,
+        children: [
+          const HomePage(),
+          HistoryPage(
+            history: history,
+          ),
+        ],
+      ),
     );
+    return Menu(body: body, arg: {});
   }
 }
 
@@ -159,7 +157,7 @@ class HistoryPage extends StatelessWidget {
                                   debugPrint('$window');
                                   window
                                     ..setFrame(const Offset(0, 0) &
-                                        const Size(1366, 768))
+                                        const Size(800, 600))
                                     ..center()
                                     ..setTitle(history[index]!['path'] ?? '')
                                     ..show();

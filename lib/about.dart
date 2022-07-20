@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
-class AboutWindow extends StatelessWidget {
-  const AboutWindow({
+class About extends StatelessWidget {
+  const About({
     super.key,
     required this.windowController,
     required this.args,
